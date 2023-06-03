@@ -1,6 +1,9 @@
 import NextAuth from 'next-auth'
 import GoogleProvider from 'next-auth/providers/google'
 
+import User from '@models/user.js'
+import { connectToDB } from '../../../utils/database.js'
+
 const handler = NextAuth({
   providers: [
     GoogleProvider({
@@ -8,10 +11,26 @@ const handler = NextAuth({
       clientSecret: process.env.GOOGLE_CLIENT_SECRET,
     }),
   ],
-  async session({ session }) {},
+  async session({ session }) {
+    const sessionUser = await User.findOne({ email: session.user.email })
+    session.user.id = sessionUser._id.toSrtring()
+    return session
+  },
   async signIn({ profile }) {
     try {
-    } catch (error) {}
+      await connectToDB()
+      const userExists = await User.findOne({ email: profile.email })
+      if (!userExists) {
+        await User.create({
+          email: profile.email,
+          username: profile.name.replace(' ', '').toLowerCase(),
+          image: profile.picture,
+        })
+      }
+      return true
+    } catch (error) {
+      console.log(error)
+    }
   },
 })
 
